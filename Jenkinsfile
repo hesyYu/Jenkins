@@ -41,6 +41,16 @@ pipeline {
                 }
             }
         }
+
+        stage('Run Flask App Hyesu Test') {
+            steps {
+                script {
+                    // Flask 애플리케이션 실행
+                    sh 'nohup python3 app/app.py > flask_app.log 2>&1 &'
+                    echo 'Flask app is running on localhost.'
+                }
+            }
+        }
     }
 
     post {
