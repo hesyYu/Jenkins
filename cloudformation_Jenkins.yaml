@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Template: EC2 for Jenkins'
+
+Parameters:
+  UserName:
+    Type: String
+    Description: The user name to be used in resource names
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID where resources will be deployed
+  UserCidrIp:
+    Type: String
+    Description: The CIDR IP range that will be allowed access to the Jenkins
+
+Resources:
+
+  JenkinsSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub 'scg-an2-${UserName}-jenkins'
+      GroupDescription: 'Security Group for Jenkins EC2 instance'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref UserCidrIp
+        - IpProtocol: tcp
+          FromPort: '8080'
+          ToPort: '8080'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '5000'
+          ToPort: '5000'
+          CidrIp: '0.0.0.0/0'
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: '0.0.0.0/0'
+
+  JenkinsInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: ami-0f3a440bbcff3d043
+      InstanceType: t3.micro
+      SubnetId: subnet-059df7e563b28b5f9
+      SecurityGroupIds:
+        - !Ref JenkinsSecurityGroup
+      KeyName: !Sub 'key-an2-${UserName}'
+      Tags:
+        - Key: "Name"
+          Value: !Sub "ec2-an2-${UserName}-jenkins"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update -y
+          apt-get install -y openjdk-11-jdk
+          curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | sudo tee \
+          /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+          echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+          https://pkg.jenkins.io/debian binary/ | sudo tee \
+          /etc/apt/sources.list.d/jenkins.list > /dev/null
+          apt-get update -y
+          apt-get install -y jenkins
+          systemctl start jenkins
+          systemctl enable jenkins
+
+  JenkinsEIP:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      NetworkBorderGroup: 'ap-northeast-2'
+      Domain: vpc
+
+  EIPAssociation:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      InstanceId: !Ref JenkinsInstance
+      AllocationId: !GetAtt JenkinsEIP.AllocationId
+
+Outputs:
+  InstancePublicIp:
+    Description: 'Public IP of the Jenkins EC2 Instance'
+    Value: !Ref JenkinsEIP
