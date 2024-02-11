@@ -15,7 +15,7 @@ pipeline {
                     // pip 설치 여부 확인 및 설치
                     if (sh(script: 'command -v pip3 || true', returnStdout: true).trim() == '') {
                         echo 'pip3 is not installed. Installing pip3...'
-                        sh 'sudo apt-get install -y python3-pip -S'
+                        sh 'sudo apt-get install -y python3-pip'
                     } else {
                         echo 'pip3 is already installed.'
                     }
